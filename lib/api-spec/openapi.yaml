@@ -1,0 +1,557 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: PILAH personal WhatsApp priority inbox API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: owner
+    description: Single-owner authentication
+  - name: inbox
+    description: Live inbox, chat selection, and preferences
+  - name: connection
+    description: WhatsApp linked-device connection
+  - name: privacy
+    description: AI consent and data deletion
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /owner/session:
+    get:
+      operationId: getOwnerSession
+      tags: [owner]
+      summary: Get current owner session
+      responses:
+        "200":
+          description: Current session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerSession"
+  /owner/logout:
+    post:
+      operationId: logoutOwner
+      tags: [owner]
+      summary: End the owner session
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerSession"
+  /inbox:
+    get:
+      operationId: getInbox
+      tags: [inbox]
+      summary: Get ranked selected conversations and coverage
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Live inbox snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxSnapshot"
+        "401":
+          description: Owner authentication required
+  /chats:
+    get:
+      operationId: getChats
+      tags: [inbox]
+      summary: Get available chat metadata for selection
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Available chat metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chat"
+        "401":
+          description: Owner authentication required
+  /chats/selection:
+    post:
+      operationId: selectInboxChats
+      tags: [inbox]
+      summary: Add all chats or the ten most recently active chats to the inbox
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboxBulkSelection"
+      responses:
+        "200":
+          description: Number of newly selected chats; existing selections are preserved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added: { type: integer, minimum: 0 }
+                required: [added]
+        "401":
+          description: Owner authentication required
+        "409":
+          description: Selection interrupted by data deletion
+  /chats/{chatId}/selection:
+    patch:
+      operationId: updateChatSelection
+      tags: [inbox]
+      summary: Select or deselect one chat for analysis
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSelectionUpdate"
+      responses:
+        "200":
+          description: Updated chat selection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          description: Owner authentication required
+        "404":
+          description: Chat not found
+  /chats/{chatId}/preferences:
+    patch:
+      operationId: updateChatPreferences
+      tags: [inbox]
+      summary: Update local importance preference
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatPreferencesUpdate"
+      responses:
+        "200":
+          description: Updated local preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          description: Owner authentication required
+        "404":
+          description: Chat not found
+  /chats/{chatId}/review:
+    post:
+      operationId: reviewChat
+      tags: [inbox]
+      summary: Mark the current messages in a conversation reviewed
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reviewed state updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          description: Owner authentication required
+        "404":
+          description: Chat not found
+  /chats/{chatId}/context:
+    get:
+      operationId: getChatContext
+      tags: [inbox]
+      summary: Get source messages and analysis for one conversation
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationContext"
+        "401":
+          description: Owner authentication required
+        "404":
+          description: Chat not found
+  /connection:
+    get:
+      operationId: getConnectionStatus
+      tags: [connection]
+      summary: Get WhatsApp connection and synchronization status
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Current connection state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionStatus"
+        "401":
+          description: Owner authentication required
+  /connection/connect:
+    post:
+      operationId: connectWhatsApp
+      tags: [connection]
+      summary: Start the WhatsApp linked-device flow
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkNoticeInput"
+      responses:
+        "200":
+          description: Connection attempt started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionStatus"
+        "409":
+          description: Another browser owns the connection or pairing is unavailable
+        "503":
+          description: Live connection is not configured
+  /connection/disconnect:
+    post:
+      operationId: disconnectWhatsApp
+      tags: [connection]
+      summary: Stop ingestion and attempt to unlink the device
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Disconnect result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisconnectResult"
+        "401":
+          description: Owner authentication required
+  /ai-consent:
+    get:
+      operationId: getAiConsent
+      tags: [privacy]
+      summary: Get the explicit external AI processing preference
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Current AI consent state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConsent"
+        "401":
+          description: Owner authentication required
+    put:
+      operationId: updateAiConsent
+      tags: [privacy]
+      summary: Set or revoke AI processing consent
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiConsentUpdate"
+      responses:
+        "200":
+          description: Updated AI consent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConsent"
+        "401":
+          description: Owner authentication required
+  /data:
+    delete:
+      operationId: deleteOwnerData
+      tags: [privacy]
+      summary: Stop processing and delete all application-held live data
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteDataInput"
+      responses:
+        "200":
+          description: Deletion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteDataResult"
+        "401":
+          description: Owner authentication required
+        "400":
+          description: Confirmation text did not match
+components:
+  securitySchemes:
+    OwnerSession:
+      type: apiKey
+      in: cookie
+      name: pilah_session
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    OwnerSession:
+      type: object
+      properties:
+        authenticated: { type: boolean }
+        liveEnabled: { type: boolean }
+        pairingAllowed: { type: boolean, description: Whether this browser may start phone authorization. }
+        pairingPending: { type: boolean, description: This browser has a pending QR authorization, not access to inbox data. }
+        configurationError: { type: ["string", "null"], description: Missing or undersized setting names only; never secret values. }
+      required: [authenticated, liveEnabled, pairingAllowed, pairingPending]
+    InboxBulkSelection:
+      type: object
+      properties:
+        mode: { type: string, enum: [all, recent10] }
+      required: [mode]
+    Chat:
+      type: object
+      properties:
+        chatId: { type: string }
+        displayName: { type: string }
+        isGroup: { type: boolean }
+        selected: { type: boolean }
+        important: { type: boolean }
+        reviewed: { type: boolean }
+        latestActivity: { type: ["string", "null"], format: date-time }
+        retainedMessageCount: { type: integer, minimum: 0 }
+      required:
+        - chatId
+        - displayName
+        - isGroup
+        - selected
+        - important
+        - reviewed
+        - latestActivity
+        - retainedMessageCount
+    ChatSelectionUpdate:
+      type: object
+      properties:
+        selected: { type: boolean }
+      required: [selected]
+    ChatPreferencesUpdate:
+      type: object
+      properties:
+        important: { type: boolean }
+      required: [important]
+    InboxItem:
+      type: object
+      properties:
+        chatId: { type: string }
+        displayName: { type: string }
+        isGroup: { type: boolean }
+        priority: { type: string, enum: [now, later, low] }
+        summary: { type: string }
+        reason: { type: string }
+        needsResponse: { type: ["boolean", "null"] }
+        dueAt: { type: ["string", "null"], format: date-time }
+        evidenceMessageIds:
+          type: array
+          items: { type: string }
+        needsReview: { type: boolean }
+        source: { type: string, enum: [rules, ai] }
+        reviewed: { type: boolean }
+        latestActivity: { type: ["string", "null"], format: date-time }
+      required:
+        - chatId
+        - displayName
+        - isGroup
+        - priority
+        - summary
+        - reason
+        - needsResponse
+        - dueAt
+        - evidenceMessageIds
+        - needsReview
+        - source
+        - reviewed
+        - latestActivity
+    InboxSnapshot:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxItem"
+        counts:
+          type: object
+          properties:
+            now: { type: integer, minimum: 0 }
+            later: { type: integer, minimum: 0 }
+            low: { type: integer, minimum: 0 }
+          required: [now, later, low]
+        coverage:
+          type: object
+          properties:
+            availableChats: { type: integer, minimum: 0 }
+            selectedChats: { type: integer, minimum: 0 }
+            analyzedMessages: { type: integer, minimum: 0 }
+            lastSyncAt: { type: ["string", "null"], format: date-time }
+            partial: { type: boolean }
+          required:
+            - availableChats
+            - selectedChats
+            - analyzedMessages
+            - lastSyncAt
+            - partial
+      required: [items, counts, coverage]
+    ConversationMessage:
+      type: object
+      properties:
+        messageId: { type: string }
+        senderName: { type: string }
+        timestamp: { type: string, format: date-time }
+        text: { type: ["string", "null"] }
+        fromOwner: { type: boolean }
+        unsupportedContent: { type: boolean }
+        edited: { type: boolean }
+        deleted: { type: boolean }
+        quotedMessageId: { type: ["string", "null"] }
+      required:
+        - messageId
+        - senderName
+        - timestamp
+        - text
+        - fromOwner
+        - unsupportedContent
+        - edited
+        - deleted
+        - quotedMessageId
+    ConversationContext:
+      type: object
+      properties:
+        chat:
+          $ref: "#/components/schemas/Chat"
+        item:
+          anyOf:
+            - $ref: "#/components/schemas/InboxItem"
+            - type: "null"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationMessage"
+        contextComplete: { type: boolean }
+      required: [chat, item, messages, contextComplete]
+    ConnectionStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [disconnected, connecting, awaiting_scan, syncing, connected, reconnecting, error]
+        qrDataUrl: { type: ["string", "null"] }
+        lastSyncAt: { type: ["string", "null"], format: date-time }
+        availableChats: { type: integer, minimum: 0 }
+        selectedChats: { type: integer, minimum: 0 }
+        analyzedMessages: { type: integer, minimum: 0 }
+        error: { type: ["string", "null"] }
+      required:
+        - state
+        - qrDataUrl
+        - lastSyncAt
+        - availableChats
+        - selectedChats
+        - analyzedMessages
+        - error
+    LinkNoticeInput:
+      type: object
+      properties:
+        noticeAccepted: { type: boolean }
+      required: [noticeAccepted]
+    DisconnectResult:
+      type: object
+      properties:
+        state: { type: string, enum: [disconnected] }
+        remoteLogoutSucceeded: { type: boolean }
+        ownerInstruction: { type: ["string", "null"] }
+      required: [state, remoteLogoutSucceeded, ownerInstruction]
+    AiConsent:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        provider: { type: ["string", "null"] }
+        updatedAt: { type: ["string", "null"], format: date-time }
+      required: [enabled, provider, updatedAt]
+    AiConsentUpdate:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        provider: { type: ["string", "null"] }
+      required: [enabled, provider]
+    DeleteDataInput:
+      type: object
+      properties:
+        confirmation: { type: string, const: DELETE }
+      required: [confirmation]
+    DeleteDataResult:
+      type: object
+      properties:
+        deleted: { type: boolean }
+        remoteLogoutSucceeded: { type: boolean }
+        ownerInstruction: { type: ["string", "null"] }
+      required: [deleted, remoteLogoutSucceeded, ownerInstruction]
+

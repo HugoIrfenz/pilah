@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "PILAH"
+description = "A private, single-owner WhatsApp priority inbox that helps users identify which conversations need attention. Includes an isolated synthetic demo, a rules-based ranking pipeline, chat selection, local preferences, and a secure live-connection path."
+version = "1.0.0"
+id = "artifacts/pilah"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22229
+
+[services.development]
+run = "pnpm --filter @workspace/pilah run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pilah", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/pilah/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22229"
+BASE_PATH = "/"
