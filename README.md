@@ -19,11 +19,11 @@ what can wait, and why—with the original messages right beside the explanation
 
 ### A quieter starting point
 
-![PILAH landing page: Don't read everything. Know what needs you.](docs/screenshots/pilah-home.jpg)
+![PILAH landing page: Don't read everything. Know what needs you.](docs/screenshots/pilah-homepage.png)
 
 ### Your chats, their context, and the reason they matter
 
-![PILAH synthetic inbox with priority filters, messages, and compact Priority Insights](docs/screenshots/pilah-inbox.jpg)
+![PILAH synthetic inbox with priority filters, messages, and compact Priority Insights](docs/screenshots/pilah-priority-inbox.png)
 
 All conversations shown above are fictional. These screenshots contain no
 private WhatsApp messages, account credentials, or pairing QR codes.
